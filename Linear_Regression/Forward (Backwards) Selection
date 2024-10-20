@@ -1,0 +1,67 @@
+# Benötigte Pakete installieren und laden
+install.packages("MASS")  # Für stepAIC
+install.packages("caret") # Für Kreuzvalidierung
+library(MASS)
+library(caret)
+library(tidyverse)
+
+# Datensatz laden
+data <- read.csv("insurance.csv")
+
+# Prüfen, ob NA-Werte vorhanden sind
+if(sum(is.na(data)) > 0) {
+  stop("Datensatz enthält NA-Werte.")
+}
+
+# Smoker Variable in binäre Werte umwandeln
+data$smoker <- ifelse(data$smoker == "yes", 1, 0)
+
+# Zielvariable definieren
+zielvariable <- "charges"
+
+# Daten aufteilen (80% Training, 20% Test)
+set.seed(123)  # Für Reproduzierbarkeit
+train_index <- sample(1:nrow(data), 0.8 * nrow(data))
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+
+# Volles Modell: alle Variablen
+full_model <- lm(charges ~ ., data = train_data)
+
+# StepAIC Regression: Variablenauswahl mit AIC
+step_aic_model <- stepAIC(full_model, direction = "both", trace = 0)  # Beide Richtungen (vorwärts/rückwärts)
+
+# Modellbewertung mit Kreuzvalidierung (k = 10)
+set.seed(123)  # Für Reproduzierbarkeit
+train_control <- trainControl(method = "cv", number = 10)  # 10-fache Kreuzvalidierung
+
+# Trainiere das Modell mit Kreuzvalidierung
+cv_model <- train(charges ~ ., data = train_data, method = "lm", trControl = train_control)
+
+# Vorhersage auf den Testdaten für das stepAIC-Modell
+step_aic_predictions <- predict(step_aic_model, newdata = test_data)
+
+# Vorhersagebewertung: RMSE und R²
+step_aic_actuals <- test_data$charges
+step_aic_mse <- mean((step_aic_predictions - step_aic_actuals)^2)  # Mean Squared Error
+step_aic_rmse <- sqrt(step_aic_mse)  # Root Mean Squared Error
+step_aic_r2 <- summary(step_aic_model)$r.squared
+
+# Kreuzvalidierungs-Ergebnisse (Mittlerer RMSE über die Folds)
+cv_results <- cv_model$results
+mean_cv_rmse <- cv_results$RMSE  # Durchschnittlicher RMSE der Kreuzvalidierung
+
+# Ergebnisse anzeigen
+cat("Ergebnisse des stepAIC Modells:\n")
+cat("R² auf Testdaten:", round(step_aic_r2, 4), "\n")
+cat("RMSE auf Testdaten:", round(step_aic_rmse, 4), "\n\n")
+
+cat("Ergebnisse der 10-fachen Kreuzvalidierung:\n")
+cat("Durchschnittlicher RMSE aus der Kreuzvalidierung:", round(mean_cv_rmse, 4), "\n")
+
+# Hinweis auf Modellgeneralität:
+if (step_aic_rmse < mean_cv_rmse) {
+  cat("Das stepAIC Modell zeigt auf den Testdaten eine bessere Leistung als in der Kreuzvalidierung.\n")
+} else {
+  cat("Das stepAIC Modell könnte überangepasst sein, da die Kreuzvalidierung eine höhere Leistung zeigt.\n")
+}
