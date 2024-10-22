@@ -107,3 +107,10 @@ print(paste("RMSE Wert, also der Kontrollwert, für das erste Modell mit allen V
 print(paste("R² für das zweite Modell mit allen Variablen: ", round(r_sq_1, 4)))
 print(paste("RMSE Wert, also der Kontrollwert, für das zweite Modell mit allen Variablen: ", rmse_1))
 
+# influential observations
+# Da der Datensatz recht klein ist wird versucht mithilfe des Cook-Abstandes zu ermitteln ob es Datenpunkte gibt die einen besonders großen Einfluss auf die Funktion haben.
+cooks_D <- cooks.distance(full_model)
+hat_values <- hatvalues(full_model)
+# Da keine Werte im Model den allgemein gebräuchlichen Schwellenwert von Cooks D überschreiten kann man sasgen, dass es kein Datenpunkte gibt die einen überaus großen Einfluss auf die Gesamtfunktion haben
+std_resid <- rstandard(full_model)
+sum(cooks_D > 0.08)
